@@ -24,6 +24,10 @@ import {
   getTelegramWebApp,
   setStoredSessionToken,
 } from './lib/api';
+import {
+  clearStaleTonConnectStorage,
+  resolveTonConnectManifest,
+} from './lib/tonManifest';
 import type {
   AuthBootstrapPayload,
   LovaUser,
@@ -48,20 +52,12 @@ const FALLBACK_PUBLIC_STATUS: PublicSystemStatus = {
   gramJettonDecimals: null,
   adminTonWalletAddress: null,
   tonApiConfigured: false,
+  tonconnectManifestUrl: null,
   adminBootstrapConfigured: false,
 };
 
 export default function App() {
-  const manifestUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/tonconnect-manifest.json`
-      : '/tonconnect-manifest.json';
-
-  return (
-    <TonConnectUIProvider manifestUrl={manifestUrl}>
-      <LovaAppShell />
-    </TonConnectUIProvider>
-  );
+  return <LovaAppShell />;
 }
 
 function LovaAppShell() {
@@ -188,6 +184,13 @@ function LovaAppShell() {
   ];
 
   const effectiveSystemStatus = bootstrap?.systemStatus || publicStatus;
+  const tonManifest = resolveTonConnectManifest(effectiveSystemStatus);
+
+  useEffect(() => {
+    if (tonManifest.isGatedPreviewWithoutPublicManifest) {
+      clearStaleTonConnectStorage();
+    }
+  }, [tonManifest.isGatedPreviewWithoutPublicManifest]);
 
   if (loading && !bootstrap && !adminMode) {
     return (
@@ -266,7 +269,11 @@ function LovaAppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060913] text-slate-100 relative overflow-x-hidden">
+    <TonConnectUIProvider
+      manifestUrl={tonManifest.manifestUrl}
+      restoreConnection={!tonManifest.isGatedPreviewWithoutPublicManifest}
+    >
+      <div className="min-h-screen bg-[#060913] text-slate-100 relative overflow-x-hidden">
       {/* Subtle Atmospheric Backdrop */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-35">
         <img
@@ -436,5 +443,6 @@ function LovaAppShell() {
         </div>
       )}
     </div>
+    </TonConnectUIProvider>
   );
 }

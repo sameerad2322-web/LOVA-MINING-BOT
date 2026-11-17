@@ -12,6 +12,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import { resolveTonConnectManifest } from '../lib/tonManifest';
 import { buildJettonTransferPayloadBase64, getBocHashHex } from '../lib/tonPayload';
 import type {
   AppSettings,
@@ -50,9 +51,14 @@ export function WalletView({
   });
 
   const [manualTxHash, setManualTxHash] = useState('');
+  const [manualAddressInput, setManualAddressInput] = useState('');
+  const [showBridgeInPreview, setShowBridgeInPreview] = useState(false);
+  const [tonConnectError, setTonConnectError] = useState<string | null>(null);
   const [jettonWalletInput, setJettonWalletInput] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [busy, setBusy] = useState<'connect' | 'disconnect' | 'verify' | 'withdraw' | null>(null);
+
+  const tonManifest = resolveTonConnectManifest(systemStatus);
 
   const loadWalletData = async () => {
     try {
@@ -100,6 +106,65 @@ export function WalletView({
       }
     })();
   }, [tonWallet?.account?.address]);
+
+  // Surface TON Connect bridge/manifest errors cleanly in UI instead of failing silently
+  useEffect(() => {
+    if (!tonConnectUI) return;
+    const unsubscribe = tonConnectUI.onStatusChange(
+      (wallet) => {
+        if (wallet) {
+          setTonConnectError(null);
+        }
+      },
+      (err) => {
+        const msg = err?.message || String(err || '');
+        if (/manifest/i.test(msg) || (err as { name?: string })?.name === 'ManifestNotFoundError') {
+          const detail =
+            'External TON wallet could not fetch tonconnect-manifest.json. Auth-gated preview URLs (ais-dev / localhost) redirect external wallet requests; deploy to a public HTTPS URL or set TONCONNECT_MANIFEST_URL.';
+          setTonConnectError(detail);
+          onToast('error', 'Wallet manifest unreachable from this preview URL.');
+          try {
+            tonConnectUI.closeModal();
+          } catch {
+            // ignore modal close errors
+          }
+        } else if (/user rejects/i.test(msg)) {
+          onToast('info', 'Wallet connection request was cancelled.');
+        } else if (msg) {
+          setTonConnectError(msg);
+          onToast('error', msg);
+        }
+      }
+    );
+    return unsubscribe;
+  }, [tonConnectUI, onToast]);
+
+  const handleManualAddressConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = manualAddressInput.trim();
+    if (!trimmed) {
+      onToast('error', 'Enter a valid TON wallet address (UQ... or EQ...).');
+      return;
+    }
+    try {
+      setBusy('connect');
+      setTonConnectError(null);
+      await apiFetch('/api/wallet/connect', {
+        method: 'POST',
+        body: JSON.stringify({
+          address: trimmed,
+          provider: 'TON Address (Preview)',
+        }),
+      });
+      setManualAddressInput('');
+      await onRefreshBootstrap();
+      onToast('success', 'TON wallet address connected.');
+    } catch (err) {
+      onToast('error', (err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const handleDisconnect = async () => {
     try {
@@ -229,8 +294,20 @@ export function WalletView({
                 Tonkeeper, TON Space & TON Connect compatible wallets · Never enter seed phrases
               </p>
             </div>
-            <TonConnectButton />
+            {(!tonManifest.isGatedPreviewWithoutPublicManifest || showBridgeInPreview) && (
+              <TonConnectButton />
+            )}
           </div>
+
+          {tonConnectError && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/35 border border-rose-500/35 text-xs text-rose-200 leading-relaxed flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-rose-100">TON Connect Manifest Error</p>
+                <p className="mt-0.5 text-rose-200/90">{tonConnectError}</p>
+              </div>
+            </div>
+          )}
 
           {activeWallet ? (
             <div className="p-4 rounded-2xl bg-[#070B17] border border-slate-800 space-y-3">
@@ -274,6 +351,57 @@ export function WalletView({
                 >
                   <Unlink className="w-3.5 h-3.5" />
                   Disconnect
+                </button>
+              </div>
+            </div>
+          ) : tonManifest.isGatedPreviewWithoutPublicManifest ? (
+            <div className="p-5 rounded-2xl bg-[#070B17] border border-slate-800 space-y-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <p className="text-sm font-semibold text-slate-100">
+                    Preview Mode · Direct TON Address Link
+                  </p>
+                  <p className="text-slate-400 leading-relaxed">
+                    External mobile & Telegram wallets must fetch{' '}
+                    <code className="font-mono text-slate-300">/tonconnect-manifest.json</code>{' '}
+                    over the public internet, which auth-gated preview URLs block. Deploy publicly
+                    or set <code className="font-mono text-slate-300">TONCONNECT_MANIFEST_URL</code>{' '}
+                    to enable the TON Connect QR modal.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleManualAddressConnect} className="space-y-2.5">
+                <label className="block text-xs text-slate-300 font-medium">
+                  Connect TON Wallet Address for Preview Testing
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={manualAddressInput}
+                    onChange={(e) => setManualAddressInput(e.target.value)}
+                    placeholder="UQ... or EQ... (TON wallet address)"
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy !== null || !manualAddressInput.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 shrink-0"
+                  >
+                    {busy === 'connect' ? 'Connecting...' : 'Connect Address'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-slate-400">
+                <span>Using a local TON browser extension?</span>
+                <button
+                  type="button"
+                  onClick={() => setShowBridgeInPreview((prev) => !prev)}
+                  className="text-blue-400 hover:text-blue-300 font-medium"
+                >
+                  {showBridgeInPreview ? 'Hide TON Connect Button' : 'Show TON Connect Button'}
                 </button>
               </div>
             </div>

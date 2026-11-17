@@ -51,6 +51,7 @@ export const serverConfig = {
   adminTonWalletAddress: (process.env.ADMIN_TON_WALLET_ADDRESS || '').trim() || null,
   tonApiEndpoint: (process.env.TON_API_ENDPOINT || 'https://tonapi.io/v2').trim().replace(/\/+$/, ''),
   tonApiKey: (process.env.TON_API_KEY || '').trim() || null,
+  tonconnectManifestUrl: (process.env.TONCONNECT_MANIFEST_URL || '').trim() || null,
 
   // LOVA Token Deployment
   lovaJettonMasterAddress: (process.env.LOVA_JETTON_MASTER_ADDRESS || '').trim() || null,
@@ -106,6 +107,7 @@ export function getPublicSystemStatus(
     gramJettonDecimals: serverConfig.gramJettonDecimals,
     adminTonWalletAddress: adminWallet,
     tonApiConfigured: Boolean(serverConfig.tonApiEndpoint),
+    tonconnectManifestUrl: serverConfig.tonconnectManifestUrl,
     adminBootstrapConfigured: Boolean(
       serverConfig.adminBootstrapSecret || serverConfig.adminTelegramIds.length > 0
     ),

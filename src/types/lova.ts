@@ -182,6 +182,7 @@ export interface PublicSystemStatus {
   gramJettonDecimals: number | null;
   adminTonWalletAddress: string | null;
   tonApiConfigured: boolean;
+  tonconnectManifestUrl?: string | null;
   adminBootstrapConfigured: boolean;
 }
 
