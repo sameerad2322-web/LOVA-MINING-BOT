@@ -1,0 +1,10 @@
+name = "lova-mining"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "dist"
+
+# Cloudflare Pages + Workers environment variable placeholders.
+# Set secrets via `wrangler secret put <NAME>` or Cloudflare Dashboard -> Settings -> Variables.
+[vars]
+TELEGRAM_ALLOW_DEV_PREVIEW = "false"
+GRAM_JETTON_DECIMALS = "9"
+TON_API_ENDPOINT = "https://tonapi.io/v2"

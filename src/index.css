@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #060913;
+    color: #f1f5f9;
+    letter-spacing: 0.01em;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+}
+
+.glass-panel {
+  background: rgba(13, 20, 38, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.glass-panel-elevated {
+  background: linear-gradient(180deg, rgba(20, 30, 56, 0.86) 0%, rgba(11, 17, 34, 0.92) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes slowOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-orbit {
+  animation: slowOrbit 18s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-orbit {
+    animation: none;
+  }
+}
